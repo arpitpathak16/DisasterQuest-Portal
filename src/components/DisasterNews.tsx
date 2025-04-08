@@ -9,7 +9,7 @@ const DisasterNews = () => {
     const fetchNews = async () => {
       try {
         const response = await fetch(
-          `https://newsapi.org/v2/everything?q=earthquake OR hurricane OR flood OR wildfire&apiKey=e51daf1cd7d44bb9ab4abd665f13b0f5`
+          `https://newsapi.org/v2/everything?q=earthquake OR hurricane OR flood OR wildfire&apiKey=Your Key`
         );
         if (!response.ok) {
           throw new Error("Failed to fetch news");
