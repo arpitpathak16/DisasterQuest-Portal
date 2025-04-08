@@ -67,7 +67,7 @@ const Challenge = () => {
         <Header />
         <main className="flex-grow container px-4 py-8 text-center text-red-500">
           <h1 className="text-2xl font-bold">Challenge Not Found</h1>
-          <p>Sorry, we couldn’t find a challenge with ID: {id}</p>
+          <p>Sorry, we couldn't find a challenge with ID: {id}</p>
         </main>
         <Footer />
       </div>
@@ -82,10 +82,13 @@ const Challenge = () => {
   const [loading, setLoading] = useState(true);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(300); // 5 minutes in seconds
+  const [timerActive, setTimerActive] = useState(false);
 
   useEffect(() => {
     // Set start time when challenge loads
     setStartTime(new Date());
+    setTimerActive(true);
 
     // Simulate loading challenge data from an API
     setLoading(true);
@@ -105,7 +108,45 @@ const Challenge = () => {
       setChallenge(mockChallenge);
       setLoading(false);
     }, 1000);
+
+    return () => {
+      setTimerActive(false);
+    };
   }, [id]);
+
+  // Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            setTimerActive(false);
+            handleTimeUp();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timeLeft]);
+
+  const handleTimeUp = () => {
+    setEndTime(new Date());
+    setShowResults(true);
+    toast({
+      title: "Time's Up!",
+      description: "You've run out of time to complete the challenge.",
+      variant: "destructive",
+    });
+  };
+
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+  };
 
   const handleAnswerSelect = (questionId: number, answerId: string) => {
     setAnswers({
@@ -156,8 +197,15 @@ const Challenge = () => {
       (q) => answers[q.id] === q.correctAnswer
     ).length;
 
-    const scorePercentage = (correctAnswers / challenge.questions.length) * 100;
-    return Math.round((scorePercentage / 100) * challenge.points);
+    const baseScore = (correctAnswers / challenge.questions.length) * 100;
+
+    // Time bonus: up to 20% extra points for completing quickly
+    const timeBonus = timeLeft > 0 ? (timeLeft / 300) * 20 : 0;
+
+    const finalScore = Math.round(
+      (baseScore + timeBonus) * (challenge.points / 100)
+    );
+    return Math.min(finalScore, challenge.points); // Cap at max points
   };
 
   const calculateProgress = () => {
@@ -256,7 +304,13 @@ const Challenge = () => {
                   <span>
                     Question {currentStep + 1} of {challenge.questions.length}
                   </span>
-                  <span>{calculateProgress()}% complete</span>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span
+                      className={timeLeft < 60 ? "text-red-500 font-bold" : ""}>
+                      {formatTime(timeLeft)}
+                    </span>
+                  </div>
                 </div>
                 <Progress value={calculateProgress()} className="h-2" />
               </div>
@@ -405,8 +459,13 @@ const Challenge = () => {
 
 // Helper function to get questions based on challenge category
 function getQuestions(id: string | undefined): Question[] {
-  // Default questions for all challenges
-  const defaultQuestions: Question[] = [
+  // Use the category-specific questions from questions.ts
+  if (id && challengeQuestions[id]) {
+    return challengeQuestions[id];
+  }
+
+  // Fallback to default questions if no specific questions are found
+  return [
     {
       id: 1,
       text: "What should be the first priority in any emergency situation?",
@@ -463,10 +522,6 @@ function getQuestions(id: string | undefined): Question[] {
       correctAnswer: "c",
     },
   ];
-
-  // Return different questions based on category in the future
-  // For now, we'll return the default questions for all categories
-  return defaultQuestions;
 }
 
 // Helper function to get challenge title based on ID

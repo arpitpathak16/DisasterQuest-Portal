@@ -1,24 +1,89 @@
-
-import { toast } from '@/hooks/use-toast';
-import { User } from '@/contexts/UserContext';
+import { toast } from "@/hooks/use-toast";
+import { User } from "@/contexts/UserContext";
 
 // A simple in-memory store to simulate real-time data for demo purposes
 // In a real app, this would be backed by a real-time database like Firebase
 class CollaborationService {
   private static instance: CollaborationService;
   private sessions: Record<string, SessionData> = {};
-  private globalLeaderboard: LeaderboardEntry[] = [];
+  private currentLeaderboard: LeaderboardEntry[] = [];
+  private demoLeaderboard: LeaderboardEntry[] = [];
   private eventListeners: Record<string, Function[]> = {};
 
   private constructor() {
-    // Initialize with some dummy leaderboard data
-    this.globalLeaderboard = [
-      { id: 'user-1', name: 'DisasterMaster', points: 3450, badges: 15, challenges: 42, joinedAt: new Date('2023-08-15') },
-      { id: 'user-2', name: 'PreparedHero', points: 2950, badges: 12, challenges: 38, joinedAt: new Date('2023-09-01') },
-      { id: 'user-3', name: 'EmergencyPro', points: 2800, badges: 14, challenges: 35, joinedAt: new Date('2023-09-15') },
-      { id: 'user-4', name: 'ResilienceQueen', points: 2650, badges: 11, challenges: 32, joinedAt: new Date('2023-10-01') },
-      { id: 'user-5', name: 'ReadyResponder', points: 2400, badges: 10, challenges: 30, joinedAt: new Date('2023-10-15') },
+    // Initialize with demo leaderboard data
+    this.demoLeaderboard = [
+      {
+        id: "demo-1",
+        name: "DisasterMaster",
+        points: 3450,
+        badges: 15,
+        challenges: 42,
+        joinedAt: new Date("2023-08-15"),
+      },
+      {
+        id: "demo-2",
+        name: "PreparedHero",
+        points: 2950,
+        badges: 12,
+        challenges: 38,
+        joinedAt: new Date("2023-09-01"),
+      },
+      {
+        id: "demo-3",
+        name: "EmergencyPro",
+        points: 2800,
+        badges: 14,
+        challenges: 35,
+        joinedAt: new Date("2023-09-15"),
+      },
+      {
+        id: "demo-4",
+        name: "ResilienceQueen",
+        points: 2650,
+        badges: 11,
+        challenges: 32,
+        joinedAt: new Date("2023-10-01"),
+      },
+      {
+        id: "demo-5",
+        name: "ReadyResponder",
+        points: 2400,
+        badges: 10,
+        challenges: 30,
+        joinedAt: new Date("2023-10-15"),
+      },
     ];
+
+    // Load saved leaderboard from localStorage if available
+    this.loadLeaderboardFromStorage();
+  }
+
+  private loadLeaderboardFromStorage() {
+    try {
+      const savedLeaderboard = localStorage.getItem("disasterQuestLeaderboard");
+      if (savedLeaderboard) {
+        const parsedLeaderboard = JSON.parse(savedLeaderboard);
+        // Convert date strings back to Date objects
+        this.currentLeaderboard = parsedLeaderboard.map((entry: any) => ({
+          ...entry,
+          joinedAt: new Date(entry.joinedAt),
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to load leaderboard from storage:", error);
+    }
+  }
+
+  private saveLeaderboardToStorage() {
+    try {
+      localStorage.setItem(
+        "disasterQuestLeaderboard",
+        JSON.stringify(this.currentLeaderboard)
+      );
+    } catch (error) {
+      console.error("Failed to save leaderboard to storage:", error);
+    }
   }
 
   public static getInstance(): CollaborationService {
@@ -36,15 +101,17 @@ class CollaborationService {
         id: sessionId,
         participants: [],
         startTime: new Date(),
-        activeChallenge: null
+        activeChallenge: null,
       };
     }
 
     // Check if user is already in session
-    const existingParticipant = this.sessions[sessionId].participants.find(p => p.id === user.id);
+    const existingParticipant = this.sessions[sessionId].participants.find(
+      (p) => p.id === user.id
+    );
     if (!existingParticipant) {
       this.sessions[sessionId].participants.push(user);
-      this.emitEvent('session-updated', this.sessions[sessionId]);
+      this.emitEvent("session-updated", this.sessions[sessionId]);
       toast({
         title: "Joined Session",
         description: `You've joined collaboration session ${sessionId}`,
@@ -56,64 +123,92 @@ class CollaborationService {
   public leaveSession(sessionId: string, userId: string): void {
     if (!this.sessions[sessionId]) return;
 
-    this.sessions[sessionId].participants = this.sessions[sessionId].participants.filter(p => p.id !== userId);
-    
+    this.sessions[sessionId].participants = this.sessions[
+      sessionId
+    ].participants.filter((p) => p.id !== userId);
+
     // If no participants left, clean up the session
     if (this.sessions[sessionId].participants.length === 0) {
       delete this.sessions[sessionId];
     } else {
-      this.emitEvent('session-updated', this.sessions[sessionId]);
+      this.emitEvent("session-updated", this.sessions[sessionId]);
     }
   }
 
-  // Get session details
+  // Get all active sessions
+  public getActiveSessions(): SessionData[] {
+    return Object.values(this.sessions);
+  }
+
+  // Get a specific session
   public getSession(sessionId: string): SessionData | null {
     return this.sessions[sessionId] || null;
   }
 
-  // Set active challenge for a session
-  public setActiveChallenge(sessionId: string, challengeId: string): void {
+  // Start a challenge in a session
+  public startChallenge(sessionId: string, challengeId: string): void {
     if (!this.sessions[sessionId]) return;
-    
+
     this.sessions[sessionId].activeChallenge = challengeId;
-    this.emitEvent('session-updated', this.sessions[sessionId]);
+    this.emitEvent("session-updated", this.sessions[sessionId]);
+    toast({
+      title: "Challenge Started",
+      description: `Challenge ${challengeId} has started in session ${sessionId}`,
+    });
   }
 
-  // Update leaderboard with a new score
+  // End a challenge in a session
+  public endChallenge(sessionId: string): void {
+    if (!this.sessions[sessionId]) return;
+
+    this.sessions[sessionId].activeChallenge = null;
+    this.emitEvent("session-updated", this.sessions[sessionId]);
+    toast({
+      title: "Challenge Ended",
+      description: `The challenge in session ${sessionId} has ended`,
+    });
+  }
+
+  // Update the leaderboard with a user's data
   public updateLeaderboard(user: User): void {
-    // Find existing entry or create new one
-    const existingEntry = this.globalLeaderboard.find(entry => entry.id === user.id);
-    
-    if (existingEntry) {
+    // Find if user already exists in leaderboard
+    const existingIndex = this.currentLeaderboard.findIndex(
+      (entry) => entry.id === user.id
+    );
+
+    const leaderboardEntry: LeaderboardEntry = {
+      id: user.id,
+      name: user.name,
+      points: user.points,
+      badges: user.badges.length,
+      challenges: user.completedChallenges.length,
+      joinedAt: user.joinedAt,
+    };
+
+    if (existingIndex >= 0) {
       // Update existing entry
-      existingEntry.points = user.points;
-      existingEntry.badges = user.badges.length;
-      existingEntry.challenges = user.completedChallenges.length;
+      this.currentLeaderboard[existingIndex] = leaderboardEntry;
     } else {
       // Add new entry
-      this.globalLeaderboard.push({
-        id: user.id,
-        name: user.name,
-        points: user.points,
-        badges: user.badges.length,
-        challenges: user.completedChallenges.length,
-        joinedAt: user.joinedAt
-      });
+      this.currentLeaderboard.push(leaderboardEntry);
     }
-    
+
     // Sort leaderboard by points (descending)
-    this.globalLeaderboard.sort((a, b) => b.points - a.points);
-    
-    // Emit leaderboard update event
-    this.emitEvent('leaderboard-updated', this.globalLeaderboard);
+    this.currentLeaderboard.sort((a, b) => b.points - a.points);
+
+    // Save to localStorage
+    this.saveLeaderboardToStorage();
+
+    // Notify subscribers
+    this.emitEvent("leaderboard-updated", this.currentLeaderboard);
   }
 
-  // Get global leaderboard
-  public getLeaderboard(): LeaderboardEntry[] {
-    return [...this.globalLeaderboard];
+  // Get the current leaderboard
+  public getLeaderboard(isDemo: boolean = false): LeaderboardEntry[] {
+    return isDemo ? this.demoLeaderboard : this.currentLeaderboard;
   }
 
-  // Event subscription system
+  // Subscribe to events
   public subscribe(event: string, callback: Function): void {
     if (!this.eventListeners[event]) {
       this.eventListeners[event] = [];
@@ -121,14 +216,18 @@ class CollaborationService {
     this.eventListeners[event].push(callback);
   }
 
+  // Unsubscribe from events
   public unsubscribe(event: string, callback: Function): void {
     if (!this.eventListeners[event]) return;
-    this.eventListeners[event] = this.eventListeners[event].filter(cb => cb !== callback);
+    this.eventListeners[event] = this.eventListeners[event].filter(
+      (cb) => cb !== callback
+    );
   }
 
+  // Emit an event to all subscribers
   private emitEvent(event: string, data: any): void {
     if (!this.eventListeners[event]) return;
-    this.eventListeners[event].forEach(callback => callback(data));
+    this.eventListeners[event].forEach((callback) => callback(data));
   }
 }
 
@@ -149,3 +248,4 @@ export interface LeaderboardEntry {
 }
 
 export default CollaborationService.getInstance();
+

@@ -341,7 +341,9 @@ const ChatbotHelp = () => {
             <div className="bg-primary text-primary-foreground p-3 rounded-t-lg flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Info className="h-5 w-5" />
-                <h3 className="font-medium">Disaster Helper</h3>
+                <h3 className="font-medium">
+                  Disaster Helper - dm me anytime :)
+                </h3>
               </div>
               <Button
                 variant="ghost"
