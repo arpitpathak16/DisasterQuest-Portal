@@ -155,7 +155,7 @@ const ChatbotHelp = () => {
   };
 
   const ai = new GoogleGenAI({
-    apiKey: "AIzaSyDIVT67x1cTnz1Z1NXIlxag_MZwgW5GVCI",
+    apiKey: "Your API Key",
   });
 
   // async function main() {
